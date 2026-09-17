@@ -4,6 +4,7 @@
 ![Repo size](https://img.shields.io/github/repo-size/Nuxview/Project-Tree)
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-0B5FFF?logo=opensourceinitiative&logoColor=white)
+[![Lint and Test](https://github.com/Nuxview/Project-Tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Nuxview/Project-Tree/actions/workflows/ci.yml)
 
 Project Tree is a small, deterministic utility that generates a Markdown representation of a project’s directory structure.
 
