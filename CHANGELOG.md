@@ -5,6 +5,28 @@ Entries are prepended automatically after the header separator when a pull reque
 
 ---
 
+## 2026-09-17 10:26:01 UTC — PR #27: Enable CI for trusted publishing to PyPI on main/master push
+
+**Author:** @Nuxview  
+**Merge commit:** `e234d227be2e52367a8966dbe100994bdd48bd75`  
+**Merged at:** 2026-09-17T10:26:01Z
+
+### Commits
+
+- **`3314fae`** (2026-08-29): ci(publish): trigger on push to main/master for PyPI trusted publishing compatibility
+- **`a73e6a5`** (2026-08-29): Update .github/workflows/publishing.yml
+- **`0d80b7f`** (2026-09-17): ci(publish): simplify PyPI publishing to trigger on GitHub release publication
+- **`32b3436`** (2026-09-17): ci(publish): validate built package version against normalized release tag
+- **`f76ce99`** (2026-09-17): ci: remove condition and continue-on-error from Slack notification
+- **`79a809f`** (2026-09-17): fix: use packaging.version for robust version comparison in publishing workflow
+
+### Changed Files
+
+  - `.github/workflows/publishing.yml` (modified)
+
+---
+
+
 ## 2026-08-28 07:04:17 UTC — PR #25: Add New Workflows
 
 **Author:** @Nuxview  
