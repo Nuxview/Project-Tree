@@ -4,153 +4,107 @@ permissions:
   contents: read
 
 on:
-  pull_request_target:
-    types:
-      - closed
-    branches:
-      - main
-      - master
-    paths:
-      - pyproject.toml
+  release:
+    types: [published]
 
 jobs:
-  test-pypi-connection:
-    name: Test PyPI Connection
+  release-build:
+    name: Build Release Distributions
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-
-      - name: Test PyPI Connection
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pypi.org/)
-          if [ "$STATUS" != "200" ]; then
-            echo "PyPI connection failed with status $STATUS"
-            exit 1
-          fi
-
-  check-version:
-    name: Check Version Change
-    needs: test-pypi-connection
-    runs-on: ubuntu-latest
-    outputs:
-      version_changed: ${{ steps.check.outputs.version_changed }}
-      version: ${{ steps.check.outputs.version }}
-      package: ${{ steps.check.outputs.package }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.event.pull_request.base.ref }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Detect Version Change
-        id: check
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          python3 -c '
-          import os, re, subprocess, sys
-
-          base_sha = os.environ.get("BASE_SHA", "")
-          base_text = ""
-          if base_sha:
-              try:
-                  base_text = subprocess.check_output(["git", "show", f"{base_sha}:pyproject.toml"], text=True)
-              except Exception:
-                  base_text = ""
-
-          with open("pyproject.toml", "r", encoding="utf-8") as f:
-              head_text = f.read()
-
-          def parse_field(text, field):
-              m = re.search(rf"^{field}\s*=\s*[\"\x27]([^\"\x27]+)[\"\x27]", text, flags=re.MULTILINE)
-              return m.group(1) if m else ""
-
-          base_version = parse_field(base_text, "version")
-          head_version = parse_field(head_text, "version")
-          pkg_name = parse_field(head_text, "name")
-
-          version_changed = "true" if (base_version != head_version and head_version) else "false"
-
-          output_file = os.environ.get("GITHUB_OUTPUT")
-          if output_file:
-              with open(output_file, "a", encoding="utf-8") as out:
-                  out.write(f"package={pkg_name}\n")
-                  out.write(f"version={head_version}\n")
-                  out.write(f"version_changed={version_changed}\n")
-          print(f"Package: {pkg_name}, Old Version: {base_version}, New Version: {head_version}, Changed: {version_changed}")
-          '
-
-  publish-pypi:
-    name: Publish to PyPI
-    needs: [test-pypi-connection, check-version]
-    if: github.event.pull_request.merged == true && needs.check-version.outputs.version_changed == 'true'
-    runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-          persist-credentials: false
-
-      - name: Check Version on PyPI
-        id: check-pypi
-        env:
-          VERSION: ${{ needs.check-version.outputs.version }}
-          PKG: ${{ needs.check-version.outputs.package }}
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/${PKG}/${VERSION}/json")
-          if [ "$STATUS" = "200" ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Notify Slack - Version Already Exists
-        if: steps.check-pypi.outputs.exists == 'true' && env.SLACK_WEBHOOK_URL != ''
-        continue-on-error: true
-        uses: slackapi/slack-github-action@v2
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "❌ *${{ needs.check-version.outputs.package }} ${{ needs.check-version.outputs.version }}* already exists on PyPI. Publication aborted."
-            }
-
-      - name: Fail - Version Already Exists
-        if: steps.check-pypi.outputs.exists == 'true'
-        run: |
-          echo "::error::Version ${{ needs.check-version.outputs.version }} already exists on PyPI."
-          exit 1
 
       - name: Setup uv
-        if: steps.check-pypi.outputs.exists == 'false'
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
       - name: Build Distribution
-        if: steps.check-pypi.outputs.exists == 'false'
         run: uv build
 
-      - name: Publish to PyPI
-        if: steps.check-pypi.outputs.exists == 'false'
-        run: uv publish --trusted-publishing always
+      - name: Validate Package Version Matches Release Tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python3 -c '
+          import os, sys, zipfile
+          from pathlib import Path
+
+          def normalize(v: str) -> str:
+              v = v.strip()
+              if v.lower().startswith("v"):
+                  v = v[1:]
+              return v.strip()
+
+          whls = list(Path("dist").glob("*.whl"))
+          version = None
+          if whls:
+              with zipfile.ZipFile(whls[0]) as z:
+                  for name in z.namelist():
+                      if name.endswith(".dist-info/METADATA"):
+                          for line in z.read(name).decode("utf-8").splitlines():
+                              if line.startswith("Version: "):
+                                  version = line.split(":", 1)[1].strip()
+                                  break
+                          break
+              if not version:
+                  version = whls[0].name.split("-")[1]
+
+          if not version:
+              sys.exit("Error: Could not determine built package version from dist/")
+
+          tag_name = os.environ.get("RELEASE_TAG", "")
+          norm_version = normalize(version)
+          norm_tag = normalize(tag_name)
+
+          print(f"Built package version: {version} (normalized: {norm_version}), Release tag: {tag_name} (normalized: {norm_tag})")
+
+          try:
+              from packaging.version import InvalidVersion, Version
+              try:
+                  matches = Version(norm_version) == Version(norm_tag)
+              except InvalidVersion:
+                  matches = norm_version == norm_tag
+          except ImportError:
+              matches = norm_version == norm_tag
+
+          if not matches:
+              print(f"::error::Built package version '\''{version}'\'' does not match release tag '\''{tag_name}'\''")
+              sys.exit(1)
+          '
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    needs:
+      - release-build
+
+    steps:
+      - name: Retrieve release distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: Publish release distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
 
       - name: Notify Slack - Published to PyPI
-        if: steps.check-pypi.outputs.exists == 'false' && env.SLACK_WEBHOOK_URL != ''
-        continue-on-error: true
         uses: slackapi/slack-github-action@v2
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -159,5 +113,5 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "✅ *${{ needs.check-version.outputs.package }} ${{ needs.check-version.outputs.version }}* successfully published to PyPI."
+              "text": "🐍 *Project Tree* version ${{ github.event.release.tag_name }} successfully published to PyPI."
             }
