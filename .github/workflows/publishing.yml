@@ -25,6 +25,48 @@ jobs:
       - name: Build Distribution
         run: uv build
 
+      - name: Validate Package Version Matches Release Tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python3 -c '
+          import os, sys, zipfile
+          from pathlib import Path
+
+          def normalize(v: str) -> str:
+              v = v.strip()
+              if v.lower().startswith("v"):
+                  v = v[1:]
+              return v.strip()
+
+          whls = list(Path("dist").glob("*.whl"))
+          version = None
+          if whls:
+              with zipfile.ZipFile(whls[0]) as z:
+                  for name in z.namelist():
+                      if name.endswith(".dist-info/METADATA"):
+                          for line in z.read(name).decode("utf-8").splitlines():
+                              if line.startswith("Version: "):
+                                  version = line.split(":", 1)[1].strip()
+                                  break
+                          break
+              if not version:
+                  version = whls[0].name.split("-")[1]
+
+          if not version:
+              sys.exit("Error: Could not determine built package version from dist/")
+
+          tag_name = os.environ.get("RELEASE_TAG", "")
+          norm_version = normalize(version)
+          norm_tag = normalize(tag_name)
+
+          print(f"Built package version: {version} (normalized: {norm_version}), Release tag: {tag_name} (normalized: {norm_tag})")
+
+          if norm_version != norm_tag:
+              print(f"::error::Built package version '\''{version}'\'' does not match release tag '\''{tag_name}'\''")
+              sys.exit(1)
+          '
+
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
