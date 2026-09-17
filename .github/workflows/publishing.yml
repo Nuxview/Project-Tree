@@ -62,7 +62,16 @@ jobs:
 
           print(f"Built package version: {version} (normalized: {norm_version}), Release tag: {tag_name} (normalized: {norm_tag})")
 
-          if norm_version != norm_tag:
+          try:
+              from packaging.version import InvalidVersion, Version
+              try:
+                  matches = Version(norm_version) == Version(norm_tag)
+              except InvalidVersion:
+                  matches = norm_version == norm_tag
+          except ImportError:
+              matches = norm_version == norm_tag
+
+          if not matches:
               print(f"::error::Built package version '\''{version}'\'' does not match release tag '\''{tag_name}'\''")
               sys.exit(1)
           '
