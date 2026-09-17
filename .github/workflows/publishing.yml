@@ -96,8 +96,6 @@ jobs:
           packages-dir: dist/
 
       - name: Notify Slack - Published to PyPI
-        if: env.SLACK_WEBHOOK_URL != ''
-        continue-on-error: true
         uses: slackapi/slack-github-action@v2
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
