@@ -33,6 +33,7 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_MERGED_AT: ${{ github.event.pull_request.merged_at }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
           echo "Collecting commits for PR #${PR_NUMBER}..."
@@ -40,21 +41,67 @@ jobs:
           # Fetch all commits in this PR
           COMMITS_JSON=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/commits --paginate)
 
-          # Build a markdown list of commits with sha, date, and message
-          COMMIT_ENTRIES=$(echo "$COMMITS_JSON" | jq -r '
-            .[] |
-            "- **`\(.sha[0:7])`** (\(.commit.author.date[:10])): \(.commit.message | split("\n")[0])"
-          ')
-
           # Fetch changed files
           FILES_JSON=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate)
-          CHANGED_FILES=$(echo "$FILES_JSON" | jq -r '
-            .[] | "  - `\(.filename)` (\(.status))"
-          ')
+
+          SUMMARY_BLOCK=""
+
+          append_file_category() {
+            local category_title="$1"
+            local jq_filter="$2"
+            local sentence_prefix="$3"
+
+            local count
+            count=$(echo "$FILES_JSON" | jq "$jq_filter | length")
+            if [ "$count" -gt 0 ]; then
+              local sample_files
+              sample_files=$(echo "$FILES_JSON" | jq -r "$jq_filter | map(\"\`\(.filename)\`\")[:3] | join(\", \")")
+              SUMMARY_BLOCK="${SUMMARY_BLOCK}* **${category_title}**"$'\n'
+              SUMMARY_BLOCK="${SUMMARY_BLOCK}  * ${sentence_prefix} ${count} file(s)"
+              if [ -n "$sample_files" ]; then
+                SUMMARY_BLOCK="${SUMMARY_BLOCK}: ${sample_files}"
+              fi
+              SUMMARY_BLOCK="${SUMMARY_BLOCK}."$'\n\n'
+            fi
+          }
+
+          OLD_VERSION=$(git diff "${BASE_SHA}" "${MERGE_COMMIT_SHA}" -- pyproject.toml | sed -nE "s/^-version = \"([^\"]+)\"/\1/p" | head -1)
+          NEW_VERSION=$(git diff "${BASE_SHA}" "${MERGE_COMMIT_SHA}" -- pyproject.toml | sed -nE "s/^\+version = \"([^\"]+)\"/\1/p" | head -1)
+          if [ -n "$OLD_VERSION" ] && [ -n "$NEW_VERSION" ] && [ "$OLD_VERSION" != "$NEW_VERSION" ]; then
+            SUMMARY_BLOCK="${SUMMARY_BLOCK}* **Release**"$'\n'
+            SUMMARY_BLOCK="${SUMMARY_BLOCK}  * Updated the project version from ${OLD_VERSION} to ${NEW_VERSION}."$'\n\n'
+          fi
+
+          append_file_category "Automation" \
+            '[.[] | select(.filename | startswith(".github/"))]' \
+            "Updated automation and workflow assets across"
+          append_file_category "Quality Improvements" \
+            '[.[] | select((.filename | startswith("projtree/")) or (.filename | startswith("tests/")))]' \
+            "Improved source and test coverage across"
+          append_file_category "Documentation" \
+            '[.[] | select(.filename | endswith(".md"))]' \
+            "Refined documentation across"
+          append_file_category "Project Configuration" \
+            '[.[] | select(.filename == "pyproject.toml" or .filename == "uv.lock" or .filename == ".gitignore" or .filename == ".projtreeignore")]' \
+            "Adjusted project configuration in"
+
+          HIGHLIGHTS=$(echo "$COMMITS_JSON" | jq -r '.[].commit.message | split("\n")[0]' | sed '/^\s*$/d' | head -3)
+          if [ -n "$HIGHLIGHTS" ]; then
+            SUMMARY_BLOCK="${SUMMARY_BLOCK}* **Highlights**"$'\n'
+            while IFS= read -r line; do
+              SUMMARY_BLOCK="${SUMMARY_BLOCK}  * ${line}"$'\n'
+            done <<< "$HIGHLIGHTS"
+            SUMMARY_BLOCK="${SUMMARY_BLOCK}"$'\n'
+          fi
+
+          if [ -z "$SUMMARY_BLOCK" ]; then
+            SUMMARY_BLOCK="* **Summary**"$'\n'"  * Merged PR #${PR_NUMBER} with tracked repository updates."$'\n\n'
+          fi
 
           # Write to temp file to avoid shell escaping issues
           # Format the merged-at timestamp (GitHub Actions always runs on Ubuntu/GNU coreutils)
           MERGED_AT_FORMATTED=$(date -u -d "${PR_MERGED_AT}" '+%Y-%m-%d %H:%M:%S UTC')
+          COMPARE_URL="https://github.com/${REPO}/compare/${BASE_SHA}...${MERGE_COMMIT_SHA}"
 
           {
             printf '## %s — PR #%s: %s\n' "${MERGED_AT_FORMATTED}" "${PR_NUMBER}" "${PR_TITLE//%/%%}"
@@ -63,13 +110,10 @@ jobs:
             echo "**Merge commit:** \`${MERGE_COMMIT_SHA}\`  "
             echo "**Merged at:** ${PR_MERGED_AT}"
             echo ""
-            echo "### Commits"
+            echo "### Summary"
             echo ""
-            echo "${COMMIT_ENTRIES}"
-            echo ""
-            echo "### Changed Files"
-            echo ""
-            echo "${CHANGED_FILES}"
+            echo "${SUMMARY_BLOCK}"
+            echo "Full changelog: ${COMPARE_URL}"
             echo ""
             echo "---"
             echo ""
