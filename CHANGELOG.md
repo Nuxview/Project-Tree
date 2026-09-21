@@ -5,6 +5,27 @@ Entries are prepended automatically after the header separator when a pull reque
 
 ---
 
+## 2026-09-21 08:32:03 UTC — PR #29: chore(changelog): replace verbose PR dump with categorized summary + compare link
+
+**Author:** @Copilot  
+**Merge commit:** `a043d961f84181b713d39f3d7bcd22e40654fa48`  
+**Merged at:** 2026-09-21T08:32:03Z
+
+### Summary
+
+* **Automation**
+  * Updated automation and workflow assets across 1 file(s): `.github/workflows/changelog.yml`.
+
+* **Highlights**
+  * Initial plan
+  * ci(changelog): generate summarized changelog entries with compare links
+
+
+Full changelog: https://github.com/Nuxview/Project-Tree/compare/9a7eab9334d44c0200ec6abe3e2f34c06a1e63c7...a043d961f84181b713d39f3d7bcd22e40654fa48
+
+---
+
+
 ## 2026-09-17 10:26:01 UTC — PR #27: Enable CI for trusted publishing to PyPI on main/master push
 
 **Author:** @Nuxview  
