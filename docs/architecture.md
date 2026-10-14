@@ -498,8 +498,8 @@ In Project Tree v1, a structural change is defined as create/delete/move events 
 
 Importantly:
 
-- The watcher ignores all `modified` events in v1
-- Structural changes are detected via create/delete/move events instead
+- The watcher ignores open/close events and ordinary `modified` events; changes to `.projtreeignore` still reload ignore rules
+- Structural changes are detected via create/delete/move events; moves check both source and destination so renaming an ignored entry to a visible name regenerates the tree
 
 This definition is intentionally broad to ensure correctness across platforms and filesystems.
 
