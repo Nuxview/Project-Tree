@@ -437,9 +437,8 @@ The ignore system directly affects the watcher:
 
 When .projtreeignore changes:
 
-1. The ignore set is recomputed
-2. The watcher is reinitialized as needed
-3. A regeneration is triggered after debounce
+1. The existing handler reloads `.projtreeignore` into `_preloaded_ignores`
+2. Regeneration is scheduled after debounce without reinitializing the watcher or observer
 
 See Chapter 7 for watcher guarantees and non-guarantees.
 
