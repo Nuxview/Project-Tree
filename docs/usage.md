@@ -45,22 +45,25 @@ projtree -h
 
 ```bash
 # Output
-usage: projtree [-h] [-v] [-o OUTPUT] [--ignore IGNORE] [--watch] [--watch-only] [path]
-               
+usage: projtree [-h] [-v] [-o OUTPUT] [--ignore IGNORE] [--watch]
+                [--watch-only]
+                [path]
+
 Generate a deterministic Markdown project tree.
 
 positional arguments:
-  path                 Root directory of the project (default: current
-                       directory)
+  path                  root directory of the project (default: current
+                        directory)
 
 options:
-  -h, --help           show this help message and exit
-  -v, --version        show installed version and exit
-  -o, --output OUTPUT  change output file name (default: structure.md)
-  --ignore IGNORE      comma-separated list of file or directory names to
-                       ignore
-  --watch              watch filesystem and regenerate on structural changes
-  --watch-only         watch for changes without initial generation
+  -h, --help            show this help message and exit
+  -v, --version         show installed version and exit
+  -o OUTPUT, --output OUTPUT
+                        change output file name (default: structure.md)
+  --ignore IGNORE       comma-separated list of file or directory names to
+                        ignore
+  --watch               watch filesystem and regenerate on structural changes
+  --watch-only          watch for changes without initial generation
 ```
 
 - `-v, --version` - Show installed version and exit
@@ -74,6 +77,8 @@ projtree -v
 ```bash
 projtree -o tree.md
 ```
+
+Relative output paths are relative to the current working directory, not `path`. The output directory must already exist. When output is under the scanned root, its basename is ignored at every depth, so the output does not include itself.
 
 - `--ignore IGNORE` - Comma-separated list of file or directory names to ignore
 
@@ -108,6 +113,8 @@ target
 projtree --watch
 ```
 
+Ordinary file-content edits and open/close events do not regenerate the tree. Changes to `.projtreeignore` reload the rules and schedule regeneration without restarting the watcher.
+
 - `--watch-only` - Watch without initial generation (requires `--watch`)
 
 ```bash
@@ -118,6 +125,8 @@ projtree --watch --watch-only
 
 ## Example Output
 
+For a directory containing `src/main.py` and `README.md`, `projtree` generates:
+
 ````text
 # Project Structure
 
@@ -125,20 +134,8 @@ projtree --watch --watch-only
 
 ```text
 .
-├── projtree
-│   ├── __init__.py
-│   ├── cli.py
-│   ├── generator.py
-│   ├── ignore.py
-│   └── watcher.py
-├── tests
-│   ├── test_basic_tree.py
-│   ├── test_watcher_basic.py
-│   └── utils.py
-├── .gitignore
-├── .projtreeignore
-├── LICENSE
-├── pyproject.toml
-└── structure.md
+├── src
+│   └── main.py
+└── README.md
 ```
 ````

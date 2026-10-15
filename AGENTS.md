@@ -12,12 +12,12 @@
 - Ignores match exact, case-sensitive names in any relative path segment, not globs or paths. Keep generator filtering and `ignore.is_ignored` behavior aligned. Path-based ignores in `docs/refactor.md` are deferred, not implemented.
 - Relative `--output` paths (including default `structure.md`) are relative to the working directory, not the scanned root. CLI and watcher ignore the output basename only if output is under root; this excludes all matching names at any depth.
 - Preserve directories-first, `casefold()`-sorted output and full Markdown formatting. `CONTRIBUTING.md` treats output changes as requiring a semver bump; retain v1 CLI and ignore-format compatibility.
-- Watcher ignores ordinary `modified` events, but reloads `.projtreeignore` on its events. Regeneration is debounced and skips writes when content is unchanged.
+- Watcher ignores access events and ordinary `modified` events; create/delete/move/modify events for `.projtreeignore` reload cached rules. Regeneration is debounced and skips writes when content is unchanged.
 
 ## Verification and maintenance
 - Tree-rendering tests assert complete Markdown output, not fragments. `tests/conftest.py` forces imports from this checkout rather than `build/lib` or an installed copy.
-- `tests/test_watcher_basic.py` runs a real watchdog observer in a daemon thread with fixed sleeps; it is timing-sensitive and does not stop the watcher. CLI watch tests mock dispatch instead.
+- `tests/test_watcher_basic.py` tests handlers directly and has one real watchdog smoke test in a daemon thread with fixed sleeps; that test is timing-sensitive and does not stop the watcher. CLI watch tests mock dispatch instead.
 - `tests/test_internal_docs.py` checks module, public-function, and test-helper docstrings.
-- CLI behavior changes also reach help text and `docs/usage.md`; keep `README.md` and `docs/architecture.md` consistent with behavior. The architecture document's example API signature/layout are stale; use source for exact interfaces.
+- CLI behavior changes also reach help text and `docs/usage.md`; keep `README.md` and `docs/architecture.md` consistent with behavior.
 - Version comes from installed `project-tree` metadata, falling back to `0.0.0-dev`; edit `pyproject.toml`, not a hardcoded package version. Release CI runs `uv build` and requires the built version to match the release tag (optional `v` prefix).
 - `.github/workflows/changelog.yml` automatically prepends `CHANGELOG.md` entries after PR merges. `.gitignore` ignores new Markdown files unless explicitly allowlisted, plus the local `.projtreeignore`.

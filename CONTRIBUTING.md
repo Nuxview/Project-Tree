@@ -109,7 +109,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 Install the package in editable mode with dev dependencies:
 
 ```bash
-uv pip install -e ".[dev]"
+uv sync --all-extras
 # Or with pip:
 pip install -e ".[dev]"
 ```
@@ -119,13 +119,18 @@ This installs:
 - `projtree` itself (editable)
 - `watchdog>=5.0.0` (core dependency)
 - `pytest` (for testing)
+- `ruff` (for linting and formatting)
+
+`uv sync` uses the checked-in `uv.lock`; the pip alternative resolves dependencies directly.
 
 ### 4. Verify Installation
 
-Run the test suite to confirm everything is set up correctly:
+Run the checks in CI order to confirm everything is set up correctly:
 
 ```bash
-pytest
+ruff check .
+ruff format --check .
+pytest -v
 ```
 
 ---
@@ -239,7 +244,8 @@ pytest --cov=projtree
 
 - **`test_basic_tree.py`** – Pure generation logic (determinism, output format, ignore behavior)
 - **`test_cli.py`** – CLI argument parsing and orchestration
-- **`test_watcher_basic.py`** – Minimal watcher integration tests
+- **`test_watcher_basic.py`** – Event-handler regression tests and one live watcher smoke test
+- **`test_internal_docs.py`** – Module, function, and test-helper docstring checks
 - **`utils.py`** – Shared test helpers (e.g., `touch()` for file creation)
 
 ### Writing Tests
@@ -268,7 +274,7 @@ def test_single_file(tmp_path: Path):
 
 ### Test Philosophy
 
-- **Deterministic, read-only logic is tested exhaustively** (generator, ignore resolution)
+- **Rendering tests call the generator directly**; CLI tests cover ignore behavior and argument handling
 - **Side effects are tested minimally** (watcher, filesystem I/O)
 - **No mocks for deterministic functions** – call them directly
 - **Avoid flaky timing-dependent tests** – use deterministic assertions
@@ -312,8 +318,8 @@ When testing ignore behavior, remember that ignore rules match against any **pat
 5. **Commit with clear messages**
 
    ```bash
-   git commit -m "feat: add support for custom ignore patterns"
-   git commit -m "test: add unit tests for pattern matching"
+   git commit -m "fix: preserve CLI ignores in watch mode"
+   git commit -m "test: cover watch ignore forwarding"
    ```
 
 ### Types of Changes
@@ -370,11 +376,11 @@ Project Tree v1 prioritizes:
 
 - No implicit magic or hidden defaults
 - Clear documentation for edge cases
-- Deterministic output under all conditions
+- Explicit ordering and formatting rules (including the equal-`casefold()` ordering limit in `docs/architecture.md`)
 
 ### 4. **Testability**
 
-- Deterministic functions (no hidden state)
+- Read-only generation tested against controlled filesystem fixtures
 - No mocking required for core logic
 - Tests serve as live documentation
 
@@ -393,11 +399,11 @@ Code that spans layers should be refactored.
 
 The output file (default `structure.md`) is handled at the **orchestration layer**, not in the generator:
 
-- **CLI**: Resolves output path and passes it to the generator
-- **Watcher**: Adds output filename to ignore set to prevent watching it
-- **Generator**: Remains pure and unaware of the output file
+- **CLI**: Resolves the scan root, builds ignores, and writes the returned Markdown; relative output paths use the working directory, not the scan root
+- **Watcher**: Independently builds ignores and writes output; both orchestration paths add the output basename to ignores only when output is under the scan root
+- **Generator**: Receives the scan root and ignore set, reads the tree, and returns Markdown without knowing the output path
 
-This ensures the generator stays testable and deterministic.
+The observer still watches recursively; output events are filtered by the handler. Keeping writes outside the generator makes rendering directly testable.
 
 ### 6. **Platform Independence**
 
@@ -411,7 +417,7 @@ This ensures the generator stays testable and deterministic.
 
 ### Before Submitting
 
-- [ ] Tests pass: `pytest -v`
+- [ ] CI checks pass: `ruff check .`, `ruff format --check .`, then `pytest -v`
 - [ ] Code follows style guidelines (type hints, docstrings)
 - [ ] Commits are atomic and descriptive
 - [ ] Documentation is updated ([architecture.md](docs/architecture.md), [README.md](README.md))
@@ -485,7 +491,7 @@ pytest -v -s
 pytest tests/test_basic_tree.py::test_single_file -v
 
 # Interactive debugging
-python -c "from projtree.generator import generate_markdown_tree; print(generate_markdown_tree('.'))"
+python -c "from pathlib import Path; from projtree.generator import generate_markdown_tree; print(generate_markdown_tree(Path('.')))"
 ```
 
 ---
