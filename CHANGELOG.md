@@ -5,6 +5,37 @@ Entries are prepended automatically after the header separator when a pull reque
 
 ---
 
+## 2026-10-15 14:28:14 UTC — PR #30: fix(watcher): stop read-event loops and handle renames
+
+**Author:** @Nuxview  
+**Merge commit:** `79e5598dd51cc23f9987d23a3a96afce45d0bc4d`  
+**Merged at:** 2026-10-15T14:28:14Z
+
+### Summary
+
+* **Release**
+  * Updated the project version from 1.3.1 to 1.3.2.
+
+* **Quality Improvements**
+  * Improved source and test coverage across 2 file(s): `projtree/watcher.py`, `tests/test_watcher_basic.py`.
+
+* **Documentation**
+  * Refined documentation across 5 file(s): `AGENTS.md`, `CONTRIBUTING.md`, `README.md`.
+
+* **Project Configuration**
+  * Adjusted project configuration in 3 file(s): `.gitignore`, `pyproject.toml`, `uv.lock`.
+
+* **Highlights**
+  * fix(watcher): stop read-event loops and handle renames
+  * chore: bump version to 1.3.2
+  * docs: align repository guidance with implementation
+
+
+Full changelog: https://github.com/Nuxview/Project-Tree/compare/eedb3accac5d3e6cfcf15ac0543c6bf2c336f6f1...79e5598dd51cc23f9987d23a3a96afce45d0bc4d
+
+---
+
+
 ## 2026-09-21 08:32:03 UTC — PR #29: chore(changelog): replace verbose PR dump with categorized summary + compare link
 
 **Author:** @Copilot  
