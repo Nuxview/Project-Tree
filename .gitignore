@@ -21,6 +21,7 @@ WARP.md
 *.md
 
 # Do not ignore these files
+!/AGENTS.md
 !/README.md
 !/CONTRIBUTING.md
 !/CHANGELOG.md

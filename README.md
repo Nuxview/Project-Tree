@@ -45,7 +45,7 @@ projtree
 
 ## Usage
 
-Run `projtree` with `--help` to see the full command reference, options, and example output.
+Run `projtree` with `--help` to see the command reference and options.
 
 ```bash
 projtree --help
@@ -85,8 +85,8 @@ If you installed development dependencies:
 pytest
 ```
 
-All generator tests assert against **full output** to enforce deterministic structure.
-Watcher tests are intentionally minimal and validate regeneration behavior only.
+Tree-format tests assert against **full output**; a separate test checks repeatability.
+Watcher tests cover event filtering, renames, ignore-rule reloads, and one live regeneration smoke test.
 
 ---
 

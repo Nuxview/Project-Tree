@@ -53,10 +53,16 @@ class _DebouncedHandler(FileSystemEventHandler):
 
     def on_any_event(self, event) -> None:
         """Handle observer events and trigger regeneration when structure changed."""
-        path = Path(event.src_path)
+        # Reading files emits access events; reloading ignores on these feeds itself.
+        if event.event_type not in {"created", "deleted", "moved", "modified"}:
+            return
+
+        paths = [Path(event.src_path)]
+        if event.event_type == "moved":
+            paths.append(Path(event.dest_path))
 
         # Always react to .projtreeignore changes
-        if path.name == ".projtreeignore":
+        if any(path.name == ".projtreeignore" for path in paths):
             self._preloaded_ignores = load_ignore_file(self.root_path)
             self._schedule_regeneration()
             return
@@ -66,11 +72,14 @@ class _DebouncedHandler(FileSystemEventHandler):
             return
 
         # Unified ignore logic (includes output file)
-        if is_ignored(
-            path,
-            self.root_path,
-            extra_ignores=self._extra_ignores,
-            preloaded_ignores=self._preloaded_ignores,
+        if all(
+            is_ignored(
+                path,
+                self.root_path,
+                extra_ignores=self._extra_ignores,
+                preloaded_ignores=self._preloaded_ignores,
+            )
+            for path in paths
         ):
             return
 
